@@ -69,7 +69,7 @@ func main() {
 	}
 
 	out, err := jsonavro.Convert(input, schema)
-  fmt.Println(out, err)
+	fmt.Println(out, err)
 
   // map[name:foo nested:map[com.punisher.NestedType:map[id:1234 val:abcd]]] <nil>
 }
