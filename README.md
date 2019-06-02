@@ -18,7 +18,9 @@ go get github.com/swhite24/go-json-avro-converter/converter
 package main
 
 import (
-  "github.com/swhite24/go-json-avro-converter/converter"
+	"fmt"
+
+	"github.com/swhite24/go-json-avro/jsonavro"
 )
 
 var schema = `
@@ -58,15 +60,15 @@ var schema = `
 `
 
 func main() {
-  input := map[string]interface{}{
-    "name": "foo",
-    "nested": map[string]interface{}{
-      "id": "1234",
-      "val": "abcd",
-    },
-  }
+	input := map[string]interface{}{
+		"name": "foo",
+		"nested": map[string]interface{}{
+			"id":  "1234",
+			"val": "abcd",
+		},
+	}
 
-  out, err := converter.Convert(input, schema)
+	out, err := jsonavro.Convert(input, schema)
   fmt.Println(out, err)
 
   // map[name:foo nested:map[com.punisher.NestedType:map[id:1234 val:abcd]]] <nil>
