@@ -9,7 +9,7 @@ Loosely inspired by https://github.com/allegro/json-avro-converter
 ## Installation
 
 ```shell
-go get github.com/swhite24/go-json-avro-converter/converter
+go get github.com/swhite24/go-json-avro/jsonavro
 ```
 
 ## Usage
