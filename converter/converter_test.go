@@ -1,42 +1,97 @@
 package converter
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var ()
-
-func TestFoo(t *testing.T) {
-	schemas := []string{
-		"{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"number\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"list\",\"type\":\"array\",\"items\":\"string\"}]}",
-		"{\"type\":\"record\",\"name\":\"InStoreNavigationProcessingCompletedEvent\",\"namespace\":\"com.kroger.desp.events.fulfillment\",\"doc\":\"Event fired when in-store navigation processing completes\",\"fields\":[{\"name\":\"eventHeader\",\"type\":{\"type\":\"record\",\"name\":\"EventHeader\",\"namespace\":\"com.kroger.desp.commons\",\"doc\":\"The below fields include header information and should be included on every event in the DESP. Inspired by: https://github.com/cloudevents/spec/blob/v0.2/spec.md\",\"fields\":[{\"name\":\"id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"A unique identifier of the event - for example, a randomly generated GUID\"},{\"name\":\"time\",\"type\":\"long\",\"doc\":\"Time the event occurred in milliseconds since epoch, UTC timezone.\"},{\"name\":\"type\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Type of occurrence which has happened. Reference the domain.event registered in schema-registry.\"},{\"name\":\"source\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Service that produced the event. Future: reference to producer registry.\"}]}},{\"name\":\"summary\",\"type\":{\"type\":\"record\",\"name\":\"InStoreNavigationProcessSummary\",\"namespace\":\"com.kroger.desp.commons.fulfillment\",\"fields\":[{\"name\":\"numProcessed\",\"type\":\"int\",\"doc\":\"Number of input items processed during the request\"},{\"name\":\"timeBegin\",\"type\":\"long\",\"doc\":\"A millisecond timestamp indicating when processing began\"},{\"name\":\"timeEnd\",\"type\":\"long\",\"doc\":\"A millisecond timestamp indicating when processing ended\"}]}}],\"version\":\"1\"}",
-	}
-	inputs := []map[string]interface{}{
-		map[string]interface{}{
-			"name":   "foo",
-			"number": 5,
-			"list":   []string{"foo", "bar"},
-		},
-		map[string]interface{}{
-			"eventHeader":     map[string]interface{}{},
-			"summary":         map[string]interface{}{},
-			"itemDescription": "foobar",
-		},
-		map[string]interface{}{
-			"eventHeader":     map[string]interface{}{},
-			"itemDescription": "foobar",
+func TestSimpleSchema(t *testing.T) {
+	schema := "{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"list\",\"type\":\"array\",\"items\":\"string\"},{\"name\":\"map\",\"type\":\"map\",\"values\":\"string\"}]}"
+	input := map[string]interface{}{
+		"name":   "foo",
+		"number": 10,
+		"list":   []string{"foo", "bar"},
+		"map": map[string]string{
+			"foo": "bar",
 		},
 	}
 
-	for i, schema := range schemas {
-		input := inputs[i]
-		data, err := Convert(input, schema)
-		fmt.Println("out: ", data, err)
-		out, _ := json.Marshal(data)
-		fmt.Println(string(out))
+	out, err := Convert(input, schema)
+
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.Equal(t, input["number"], out["number"])
+	assert.Equal(t, input["list"], out["list"])
+	assert.Equal(t, input["map"], out["map"])
+}
+
+func TestSchemaRecordField(t *testing.T) {
+	schema := "{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nested\",\"type\":{\"type\":\"record\",\"name\":\"NestedType\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"val\",\"type\":\"string\"}]}}]}"
+	input := map[string]interface{}{
+		"name": "foo",
+		"nested": map[string]interface{}{
+			"id":  "1234",
+			"val": "abcd",
+		},
 	}
 
-	t.Fail()
+	out, err := Convert(input, schema)
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.Equal(t, input["nested"], out["nested"])
+}
+
+func TestSchemaUnionField(t *testing.T) {
+	schema := "{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"number\",\"type\":[\"null\",\"int\"],\"default\":null}]}"
+	input := map[string]interface{}{
+		"name": "foo",
+	}
+
+	out, err := Convert(input, schema)
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.Nil(t, input["number"])
+
+	input = map[string]interface{}{
+		"name":   "foo",
+		"number": 10,
+	}
+	out, err = Convert(input, schema)
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.NotNil(t, out["number"])
+	numval, _ := out["number"].(map[string]interface{})
+	assert.Equal(t, input["number"], numval["int"])
+}
+
+func TestSchemaUnionRecordField(t *testing.T) {
+	schema := "{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"nested\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"NestedType\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"val\",\"type\":\"string\"}]}],\"default\":null}]}"
+	input := map[string]interface{}{
+		"name": "foo",
+		"nested": map[string]interface{}{
+			"id":  "abcd",
+			"val": "1234",
+		},
+	}
+
+	out, err := Convert(input, schema)
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.NotNil(t, out["nested"])
+	nestedval, _ := out["nested"].(map[string]interface{})
+	assert.Equal(t, nestedval["com.punisher.NestedType"], input["nested"])
+}
+
+func TestSchemaExpandedPrimitiveField(t *testing.T) {
+	schema := "{\"type\":\"record\",\"name\":\"TestSchema\",\"namespace\":\"com.punisher\",\"fields\":[{\"name\":\"name\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"number\",\"type\":\"int\"},{\"name\":\"list\",\"type\":\"array\",\"items\":\"string\"},{\"name\":\"map\",\"type\":\"map\",\"values\":\"string\"}]}"
+	input := map[string]interface{}{
+		"name":   "foo",
+		"number": 10,
+	}
+
+	out, err := Convert(input, schema)
+	assert.Nil(t, err)
+	assert.Equal(t, input["name"], out["name"])
+	assert.Equal(t, input["number"], out["number"])
 }

@@ -27,7 +27,6 @@ func Convert(datum map[string]interface{}, schema string) (map[string]interface{
 
 // derive determines the appropriate structure of the provided value for the given type
 func derive(datum, typ interface{}) (interface{}, error) {
-	fmt.Println("derive: ", datum, typ)
 	switch t := typ.(type) {
 	// Simple case. typ contains the primitive type name to set.
 	case string:
