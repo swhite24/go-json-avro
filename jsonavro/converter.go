@@ -1,4 +1,4 @@
-package converter
+package jsonavro
 
 import (
 	"encoding/json"
